@@ -1,85 +1,102 @@
 pub struct IntCodeComputer {
-    input_arr: Vec<i32>,
+    pub input_arr: Vec<usize>,
 }
 
-fn execute_program(int_code_computer: IntCodeComputer, noun: i32, verb: i32) -> Vec<i32> {
-    let mut memory: Vec<i32> = Vec::new();
-    memory[..0].clone_from_slice(&int_code_computer.input_arr);
-    if noun >= 0 {
+impl IntCodeComputer {
+    pub fn execute_program(&self, noun: usize, verb: usize) -> Vec<usize> {
+        let mut memory: Vec<usize> = self.input_arr.to_vec();
         memory[1] = noun;
-    }
-    if verb >= 0 {
         memory[2] = verb;
+        let mut ip = 0;
+        let mut ins = parse_instruction(&self.input_arr, ip);
+        while !ins.get_halt() {
+            ip = ins.execute_instruction(&mut memory, ip);
+            ins = parse_instruction(&memory, ip);
+        }
+        memory
     }
-    let mut ip = 0;
-    let mut ins = parse_instruction(int_code_computer.input_arr, ip);
-    while !ip.get_halt() {
-        ip = ins.execute_instruction(memory, ip);
-        ins = parse_instruction(memory, ip);
-    }
-    memory
 }
 
-fn execute_instruction(arr: &mut Vec<i32>, ins: impl Instruction, ip: usize) -> usize {
-    ins.execute_instruction(arr, ip)
-}
-
-fn parse_instruction(arr: &Vec<i32>, i: usize) -> impl Instruction {
+fn parse_instruction(arr: &Vec<usize>, i: usize) -> Ins {
     match arr[i] {
-        1 => Add {
-            p1: arr[i + 1],
-            p2: arr[i + 2],
-            p_out: arr[i + 3],
-        },
-        2 => Mul {
-            p1: arr[i + 1],
-            p2: arr[i + 2],
-            p_out: arr[i + 3],
-        },
-        99 => Hlt {},
+        1 => Ins::ADD(Add {
+            p1: arr[i + 1 as usize],
+            p2: arr[i + 2 as usize],
+            p_out: arr[i + 3 as usize],
+        }),
+        2 => Ins::MUL(Mul {
+            p1: arr[i + 1 as usize],
+            p2: arr[i + 2 as usize],
+            p_out: arr[i + 3 as usize],
+        }),
+        99 => Ins::HLT(Hlt {}),
+        _ => panic!("Unable to determine what to do!"),
     }
+}
+
+pub enum Ins {
+    ADD(Add),
+    MUL(Mul),
+    HLT(Hlt),
 }
 
 pub trait Instruction {
-    fn get_halt(&self) -> boolean {
+    fn get_halt(&self) -> bool {
         false
     }
-    fn execute_instruction(&self, memory: &mut Vec<i32>, ip: usize) -> usize;
+    fn execute_instruction(&self, memory: &mut Vec<usize>, ip: usize) -> usize;
 }
 
 pub struct Add {
-    p1: i32,
-    p2: i32,
-    p_out: i32,
+    p1: usize,
+    p2: usize,
+    p_out: usize,
 }
 
 pub struct Mul {
-    p1: i32,
-    p2: i32,
-    p_out: i32,
+    p1: usize,
+    p2: usize,
+    p_out: usize,
 }
 
 pub struct Hlt {}
 
+impl Instruction for Ins {
+    fn get_halt(&self) -> bool {
+        match &self {
+            Ins::HLT(_) => true,
+            _ => false,
+        }
+    }
+
+    fn execute_instruction(&self, memory: &mut Vec<usize>, ip: usize) -> usize {
+        match *self {
+            Ins::ADD(ref data) => data.execute_instruction(memory, ip),
+            Ins::MUL(ref data) => data.execute_instruction(memory, ip),
+            Ins::HLT(ref data) => data.execute_instruction(memory, ip),
+        }
+    }
+}
+
 impl Instruction for Add {
-    fn execute_instruction(&self, memory: &mut Vec<i32>, ip: usize) -> usize {
+    fn execute_instruction(&self, memory: &mut Vec<usize>, ip: usize) -> usize {
         memory[self.p_out] = memory[self.p1] + memory[self.p2];
         ip + 4
     }
 }
 
 impl Instruction for Mul {
-    fn execute_instruction(&self, memory: &mut Vec<i32>, ip: usize) -> usize {
+    fn execute_instruction(&self, memory: &mut Vec<usize>, ip: usize) -> usize {
         memory[self.p_out] = memory[self.p1] * memory[self.p2];
         ip + 4
     }
 }
 
 impl Instruction for Hlt {
-    fn execute_instruction(&self, memory: &mut Vec<i32>, ip: usize) -> usize {
+    fn execute_instruction(&self, _memory: &mut Vec<usize>, ip: usize) -> usize {
         ip + 1
     }
-    fn get_halt(&self) -> boolean {
+    fn get_halt(&self) -> bool {
         true
     }
 }
